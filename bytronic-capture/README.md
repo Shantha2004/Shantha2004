@@ -38,3 +38,11 @@ data (grey Bayer mosaic) instead, if you ever need it.
 
 Defaults are in `capture-worker/config.yaml`. To reproduce the production
 camera settings exactly, save them from pylon Viewer as a `.pfs` file and set `pfs_file`.
+
+## Troubleshooting
+- **`ModuleNotFoundError: No module named 'cv2'`**: the Python being used has no OpenCV.
+  `capture.bat` prints `Using Python: ...` at the start. It looks for `.venv` / `venv`
+  next to itself, one folder up, or in `camera-worker\`. Put `capture.bat` in the
+  project folder (next to `main.py` and `.venv`), or answer **Y** when it offers to
+  install the missing packages.
+- **`Camera open failed`**: close `main.py` and pylon Viewer, then run again.

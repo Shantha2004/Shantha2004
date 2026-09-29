@@ -4,6 +4,11 @@ Image capture tool for collecting model-training data on the Bytronic PC.
 Grabs frames from the Basler camera (pypylon) and saves them to disk as
 image files, so they can be labelled and used for training.
 
+By default (raw: true) frames are saved exactly as the camera sends them:
+no debayering, colour conversion or bit-depth reduction. Mono8/Bayer8 is
+saved as 8-bit single-channel, Mono12/Bayer12 etc. as 16-bit PNG/TIFF.
+The live preview is still converted to a normal image for display only.
+
 Modes:
   manual    live preview; SPACE / S saves a frame, Q / ESC quits
   interval  saves a frame every --interval seconds (optionally with preview)
@@ -72,7 +77,11 @@ class BaslerCamera:
             self._try_set(["GainAuto"], "Off")
             self._try_set(["Gain", "GainRaw"], cfg["gain"])
 
-        self.is_mono = str(self.cam.PixelFormat.GetValue()).startswith("Mono")
+        self.raw = bool(cfg.get("raw", True))
+        self.pixel_format = str(self.cam.PixelFormat.GetValue())
+        logging.info(f"Pixel format: {self.pixel_format} "
+                     f"({'saving raw sensor data' if self.raw else 'saving converted image'})")
+        self.is_mono = self.pixel_format.startswith("Mono")
         self.converter = pylon.ImageFormatConverter()
         self.converter.OutputPixelFormat = (
             pylon.PixelType_Mono8 if self.is_mono else pylon.PixelType_BGR8packed
@@ -92,13 +101,28 @@ class BaslerCamera:
                 continue
         logging.warning(f"Could not set any of {names} to {value}")
 
-    def read(self):
+    def read(self, display: bool = False):
+        """Return (frame_to_save, frame_to_display); display frame is None unless requested."""
         res = self.cam.RetrieveResult(5000, self.pylon.TimeoutHandling_ThrowException)
         try:
             if not res.GrabSucceeded():
                 logging.warning(f"Grab failed: {res.GetErrorDescription()}")
-                return None
-            return self.converter.Convert(res).GetArray()
+                return None, None
+            converted = None
+            if display or not self.raw:
+                converted = self.converter.Convert(res).GetArray()
+            if not self.raw:
+                return converted, converted
+            try:
+                # copy: the buffer is returned to the camera on Release()
+                raw = res.GetArray().copy()
+            except Exception as e:
+                raise RuntimeError(
+                    f"Cannot read raw data for pixel format {self.pixel_format} ({e}). "
+                    "Use an unpacked format (e.g. Mono12 instead of Mono12p) in pylon Viewer, "
+                    "or set raw: false."
+                ) from e
+            return raw, converted
         finally:
             res.Release()
 
@@ -120,9 +144,9 @@ class OpenCVCamera:
         if not self.cap.isOpened():
             raise RuntimeError(f"Could not open OpenCV source {src!r}")
 
-    def read(self):
+    def read(self, display: bool = False):
         ok, frame = self.cap.read()
-        return frame if ok else None
+        return (frame, frame) if ok else (None, None)
 
     def close(self):
         self.cap.release()
@@ -156,6 +180,9 @@ class ImageWriter:
         ts = datetime.now()
         name = f"{self.prefix}_{ts.strftime('%Y%m%d_%H%M%S_%f')[:-3]}.{self.ext}"
         path = self.dir / name
+        if frame.dtype != "uint8" and self.ext not in ("png", "tif", "tiff"):
+            raise ValueError(f"{frame.dtype} image cannot be saved as .{self.ext} "
+                             "without losing data - use format: png or tiff")
         if not cv2.imwrite(str(path), frame):
             raise IOError(f"Failed to write {path}")
         self.count += 1
@@ -205,11 +232,11 @@ def run(cfg: dict):
 
     try:
         while True:
-            frame = camera.read()
+            frame, view = camera.read(display=preview)
             if frame is None:
                 continue
 
-            key = show_preview(frame, writer, mode, float(cfg["preview_scale"])) if preview else -1
+            key = show_preview(view, writer, mode, float(cfg["preview_scale"])) if preview else -1
             if key in (ord("q"), 27):
                 break
 
@@ -246,13 +273,17 @@ def load_config(argv=None) -> dict:
     p.add_argument("--serial", help="Basler camera serial number")
     p.add_argument("--exposure-us", type=float)
     p.add_argument("--gain", type=float)
+    p.add_argument("--raw", dest="raw", action="store_true", default=None,
+                   help="save exactly what the sensor outputs (default)")
+    p.add_argument("--no-raw", dest="raw", action="store_false",
+                   help="save converted colour/mono 8-bit images instead")
     p.add_argument("--preview", action="store_true", default=None, help="show live window in interval mode")
     args = p.parse_args(argv)
 
     cfg = {
         "model_name": "MAGNAPOWER_v4", "mode": "manual", "interval": 1.0, "max_images": 0, "label": "",
         "output_dir": "../dataset/raw", "prefix": "", "format": "png",
-        "source": "basler", "serial": "", "pfs_file": "", "exposure_us": None, "gain": None,
+        "raw": True, "source": "basler", "serial": "", "pfs_file": "", "exposure_us": None, "gain": None,
         "opencv_source": 0, "preview": False, "preview_scale": 0.5,
     }
     cfg_path = Path(args.config)

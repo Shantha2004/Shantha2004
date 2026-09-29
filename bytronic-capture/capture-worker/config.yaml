@@ -12,6 +12,8 @@ output_dir: ../dataset/raw   # relative to capture-worker/
 prefix: ""              # empty = use model_name
 format: png             # png/bmp are lossless - best for training
 
+raw: true               # true = save exactly as the camera sensor outputs it
+                        # (no debayer/colour conversion, full bit depth)
 source: basler          # basler | opencv (webcam, for testing)
 serial: ""              # Basler serial number; empty = first camera found
 pfs_file: ""            # optional pylon Viewer feature file (.pfs) to load

@@ -31,5 +31,11 @@ Stop `main.py` first. A Basler camera can only be opened by one program at a tim
 | `capture.bat --model-name MAGNAPOWER_v5` | Save under a different model name |
 | `capture.bat --exposure-us 5000 --gain 0` | Override camera exposure/gain |
 
+Images are saved **exactly as the camera sends them** (`raw: true`): same
+resolution, pixel format and bit depth, with no colour conversion. A colour
+camera in Bayer mode therefore saves the single-channel Bayer mosaic, and
+12-bit formats are saved as 16-bit PNG. Use `--no-raw` to save normal
+8-bit colour/mono images instead.
+
 Defaults are in `capture-worker/config.yaml`. To reproduce the production
 camera settings exactly, save them from pylon Viewer as a `.pfs` file and set `pfs_file`.

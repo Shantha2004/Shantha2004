@@ -86,7 +86,6 @@ class BaslerCamera:
         self.converter.OutputPixelFormat = (
             pylon.PixelType_Mono8 if self.is_mono else pylon.PixelType_BGR8packed
         )
-        self.converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 
         self.cam.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
 

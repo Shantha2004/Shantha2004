@@ -154,11 +154,14 @@ def open_camera(cfg: dict):
 # Saving
 # --------------------------------------------------------------------------- #
 class ImageWriter:
-    def __init__(self, output_dir: Path, prefix: str, label: str, ext: str):
+    def __init__(self, output_dir: Path, model_name: str, prefix: str, label: str, ext: str):
         session = datetime.now().strftime("%Y-%m-%d")
-        sub = Path(session) / label if label else Path(session)
+        sub = Path(model_name) / session
+        if label:
+            sub /= label
         self.dir = output_dir / sub
         self.dir.mkdir(parents=True, exist_ok=True)
+        self.model_name = model_name
         self.prefix = prefix
         self.label = label
         self.ext = ext.lstrip(".").lower()
@@ -169,7 +172,7 @@ class ImageWriter:
         self.csv_file = open(self.csv_path, "a", newline="")
         self.csv = csv.writer(self.csv_file)
         if new_file:
-            self.csv.writerow(["filename", "timestamp", "label", "width", "height", "camera_settings"])
+            self.csv.writerow(["filename", "timestamp", "model", "label", "width", "height", "camera_settings"])
 
     def save(self, frame, settings: dict) -> Path:
         ts = datetime.now()
@@ -178,7 +181,7 @@ class ImageWriter:
         if not cv2.imwrite(str(path), frame):
             raise IOError(f"Failed to write {path}")
         h, w = frame.shape[:2]
-        self.csv.writerow([name, ts.isoformat(timespec="milliseconds"), self.label, w, h, settings])
+        self.csv.writerow([name, ts.isoformat(timespec="milliseconds"), self.model_name, self.label, w, h, settings])
         self.csv_file.flush()
         self.count += 1
         logging.info(f"[{self.count}] saved {path}")
@@ -217,7 +220,9 @@ def run(cfg: dict):
                       "the camera can only be used by one program at a time.")
         sys.exit(1)
 
-    writer = ImageWriter(output_dir, cfg["prefix"], cfg.get("label") or "", cfg["format"])
+    model_name = cfg["model_name"]
+    writer = ImageWriter(output_dir, model_name, cfg.get("prefix") or model_name,
+                         cfg.get("label") or "", cfg["format"])
     logging.info(f"Saving images to {writer.dir}")
 
     mode = cfg["mode"]
@@ -261,9 +266,10 @@ def load_config(argv=None) -> dict:
     p.add_argument("--mode", choices=["manual", "interval"])
     p.add_argument("--interval", type=float, help="seconds between saves (interval mode)")
     p.add_argument("--max-images", type=int, help="stop after N images (0 = unlimited)")
+    p.add_argument("--model-name", help="model/dataset name, e.g. MAGNAPOWER_v4")
     p.add_argument("--label", help="subfolder/class name, e.g. ok, ng, scratch")
     p.add_argument("--output-dir", help="root folder for saved images")
-    p.add_argument("--prefix", help="filename prefix")
+    p.add_argument("--prefix", help="filename prefix (default: model name)")
     p.add_argument("--format", choices=["png", "bmp", "jpg", "tiff"])
     p.add_argument("--source", choices=["basler", "opencv"])
     p.add_argument("--serial", help="Basler camera serial number")
@@ -273,8 +279,8 @@ def load_config(argv=None) -> dict:
     args = p.parse_args(argv)
 
     cfg = {
-        "mode": "manual", "interval": 1.0, "max_images": 0, "label": "",
-        "output_dir": "../dataset/raw", "prefix": "img", "format": "png",
+        "model_name": "MAGNAPOWER_v4", "mode": "manual", "interval": 1.0, "max_images": 0, "label": "",
+        "output_dir": "../dataset/raw", "prefix": "", "format": "png",
         "source": "basler", "serial": "", "pfs_file": "", "exposure_us": None, "gain": None,
         "opencv_source": 0, "preview": False, "preview_scale": 0.5,
     }

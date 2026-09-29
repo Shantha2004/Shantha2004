@@ -16,7 +16,7 @@ project/
 │   ├── config.yaml
 │   └── app/capture_main.py
 ├── camera-worker/ ...
-└── dataset/raw/<date>/<label>/*.png + metadata.csv   (created automatically)
+└── dataset/raw/MAGNAPOWER_v4/<date>/<label>/MAGNAPOWER_v4_<time>.png + metadata.csv
 ```
 
 ## Use
@@ -28,6 +28,7 @@ Stop `main.py` first. A Basler camera can only be opened by one program at a tim
 | `capture.bat --label ok` / `--label ng` | Save into a class subfolder |
 | `capture.bat --mode interval --interval 2` | Auto-save every 2 s |
 | `capture.bat --mode interval --max-images 200 --preview` | 200 images, with live view |
+| `capture.bat --model-name MAGNAPOWER_v5` | Save under a different model name |
 | `capture.bat --exposure-us 5000 --gain 0` | Override camera exposure/gain |
 
 Defaults are in `capture-worker/config.yaml`. To reproduce the production

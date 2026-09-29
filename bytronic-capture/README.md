@@ -1,0 +1,48 @@
+# Bytronic image capture (replacement for the deleted .bat)
+
+Captures images from the Basler camera and saves them for model training.
+
+## Install on the Bytronic PC
+Copy `capture.bat` and the `capture-worker/` folder into the project root
+(next to `main.py` and `calibrate.py`). It uses the existing `.venv` and
+`requirements.txt` (pypylon, opencv-python, PyYAML); nothing new to install.
+
+```
+project/
+├── main.py
+├── calibrate.py
+├── capture.bat              <- new
+├── capture-worker/          <- new
+│   ├── config.yaml
+│   └── app/capture_main.py
+├── camera-worker/ ...
+└── dataset/raw/MAGNAPOWER_v4/<date>/<label>/MAGNAPOWER_v4_<time>.png
+```
+
+## Use
+Stop `main.py` first. A Basler camera can only be opened by one program at a time.
+
+| Command | What it does |
+|---|---|
+| `capture.bat` | Live preview, **SPACE** saves a frame, **Q** quits |
+| `capture.bat --label ok` / `--label ng` | Save into a class subfolder |
+| `capture.bat --mode interval --interval 2` | Auto-save every 2 s |
+| `capture.bat --mode interval --max-images 200 --preview` | 200 images, with live view |
+| `capture.bat --model-name MAGNAPOWER_v5` | Save under a different model name |
+| `capture.bat --exposure-us 5000 --gain 0` | Override camera exposure/gain |
+
+Images are saved **in full colour at the camera's full resolution** as
+lossless PNG, the same as the live preview (the preview window is only scaled
+on screen; saved files are not resized). `--raw` saves the unconverted sensor
+data (grey Bayer mosaic) instead, if you ever need it.
+
+Defaults are in `capture-worker/config.yaml`. To reproduce the production
+camera settings exactly, save them from pylon Viewer as a `.pfs` file and set `pfs_file`.
+
+## Troubleshooting
+- **`ModuleNotFoundError: No module named 'cv2'`**: the Python being used has no OpenCV.
+  `capture.bat` prints `Using Python: ...` at the start. It looks for `.venv` / `venv`
+  next to itself, one folder up, or in `camera-worker\`. Put `capture.bat` in the
+  project folder (next to `main.py` and `.venv`), or answer **Y** when it offers to
+  install the missing packages.
+- **`Camera open failed`**: close `main.py` and pylon Viewer, then run again.

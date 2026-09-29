@@ -16,7 +16,7 @@ project/
 │   ├── config.yaml
 │   └── app/capture_main.py
 ├── camera-worker/ ...
-└── dataset/raw/MAGNAPOWER_v4/<date>/<label>/MAGNAPOWER_v4_<time>.png + metadata.csv
+└── dataset/raw/MAGNAPOWER_v4/<date>/<label>/MAGNAPOWER_v4_<time>.png
 ```
 
 ## Use

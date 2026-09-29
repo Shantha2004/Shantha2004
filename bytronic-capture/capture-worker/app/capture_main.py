@@ -1,8 +1,8 @@
 """
 Image capture tool for collecting model-training data on the Bytronic PC.
 
-Grabs frames from the Basler camera (pypylon) and saves them to disk,
-together with a metadata CSV, so they can be labelled and used for training.
+Grabs frames from the Basler camera (pypylon) and saves them to disk as
+image files, so they can be labelled and used for training.
 
 Modes:
   manual    live preview; SPACE / S saves a frame, Q / ESC quits
@@ -12,7 +12,6 @@ The camera can only be opened by one process at a time, so stop main.py
 (camera-worker) before running this.
 """
 import argparse
-import csv
 import logging
 import sys
 import time
@@ -103,15 +102,6 @@ class BaslerCamera:
         finally:
             res.Release()
 
-    def settings(self) -> dict:
-        info = {}
-        for name in ("ExposureTime", "ExposureTimeAbs", "Gain", "GainRaw", "PixelFormat"):
-            try:
-                info[name] = getattr(self.cam, name).GetValue()
-            except Exception:
-                pass
-        return info
-
     def close(self):
         try:
             if self.cam.IsGrabbing():
@@ -133,9 +123,6 @@ class OpenCVCamera:
     def read(self):
         ok, frame = self.cap.read()
         return frame if ok else None
-
-    def settings(self) -> dict:
-        return {}
 
     def close(self):
         self.cap.release()
@@ -161,34 +148,19 @@ class ImageWriter:
             sub /= label
         self.dir = output_dir / sub
         self.dir.mkdir(parents=True, exist_ok=True)
-        self.model_name = model_name
         self.prefix = prefix
-        self.label = label
         self.ext = ext.lstrip(".").lower()
         self.count = 0
 
-        self.csv_path = self.dir / "metadata.csv"
-        new_file = not self.csv_path.exists()
-        self.csv_file = open(self.csv_path, "a", newline="")
-        self.csv = csv.writer(self.csv_file)
-        if new_file:
-            self.csv.writerow(["filename", "timestamp", "model", "label", "width", "height", "camera_settings"])
-
-    def save(self, frame, settings: dict) -> Path:
+    def save(self, frame) -> Path:
         ts = datetime.now()
         name = f"{self.prefix}_{ts.strftime('%Y%m%d_%H%M%S_%f')[:-3]}.{self.ext}"
         path = self.dir / name
         if not cv2.imwrite(str(path), frame):
             raise IOError(f"Failed to write {path}")
-        h, w = frame.shape[:2]
-        self.csv.writerow([name, ts.isoformat(timespec="milliseconds"), self.model_name, self.label, w, h, settings])
-        self.csv_file.flush()
         self.count += 1
         logging.info(f"[{self.count}] saved {path}")
         return path
-
-    def close(self):
-        self.csv_file.close()
 
 
 # --------------------------------------------------------------------------- #
@@ -242,9 +214,9 @@ def run(cfg: dict):
                 break
 
             if mode == "manual" and key in (ord(" "), ord("s")):
-                writer.save(frame, camera.settings())
+                writer.save(frame)
             elif mode == "interval" and time.monotonic() - last_save >= interval:
-                writer.save(frame, camera.settings())
+                writer.save(frame)
                 last_save = time.monotonic()
 
             if max_images and writer.count >= max_images:
@@ -254,7 +226,6 @@ def run(cfg: dict):
         pass
     finally:
         camera.close()
-        writer.close()
         if preview:
             cv2.destroyAllWindows()
         logging.info(f"Done. {writer.count} image(s) saved to {writer.dir}")

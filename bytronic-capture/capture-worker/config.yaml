@@ -1,0 +1,21 @@
+# Image capture settings. Any value can be overridden from the command line,
+# e.g.  capture.bat --mode interval --interval 2 --label ng
+
+mode: manual            # manual (press SPACE to save) | interval (auto-save)
+interval: 1.0           # seconds between saves in interval mode
+max_images: 0           # stop after N images, 0 = unlimited
+label: ""               # optional class subfolder: ok, ng, scratch, ...
+
+output_dir: ../dataset/raw   # relative to capture-worker/
+prefix: img
+format: png             # png/bmp are lossless - best for training
+
+source: basler          # basler | opencv (webcam, for testing)
+serial: ""              # Basler serial number; empty = first camera found
+pfs_file: ""            # optional pylon Viewer feature file (.pfs) to load
+exposure_us: null       # e.g. 5000; null = keep camera's current setting
+gain: null              # e.g. 0.0;  null = keep camera's current setting
+opencv_source: 0
+
+preview: false          # show live window in interval mode (always on in manual)
+preview_scale: 0.5
